@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+
+  chat-server:   
+    container_name: chat_server
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "9205:9205" 
+    restart: unless-stopped
+    env_file:
+      - "dev.env"

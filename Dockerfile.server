@@ -1,0 +1,20 @@
+
+FROM golang:1.21 AS build 
+
+WORKDIR /server
+
+COPY . .
+
+RUN go mod download
+RUN go build -o /server/app cmd/server/main.go
+
+
+FROM ubuntu:22.04
+
+WORKDIR /server
+
+# todo: add certificates
+COPY --from=build /server/app /server/app
+
+EXPOSE 9205
+CMD ["/server/app"]
