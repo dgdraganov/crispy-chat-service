@@ -23,6 +23,8 @@ func main() {
 	router := router.New()
 
 	//router.Register("/auth", ...)
+	//router.Register("/auth", ...)
+	//router.Register("/auth", ...)
 
 	server := server.NewHTTP(conf.Port, router.ServeMux(), logger)
 	// starts the server asynchronously

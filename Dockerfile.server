@@ -15,6 +15,7 @@ WORKDIR /server
 
 # todo: add certificates
 COPY --from=build /server/app /server/app
+COPY --from=build /server/private.pem /server/private.pem
 
 EXPOSE 9205
 CMD ["/server/app"]

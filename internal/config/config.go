@@ -9,11 +9,13 @@ import (
 var errMissingEnvVariable error = errors.New("environment variable not found")
 
 type ServerConfig struct {
-	Port string
+	Port           string
+	PrivateKeyPath string
 }
 
 const (
-	serverPortEnvString = "SERVER_PORT"
+	serverPortEnvString     = "SERVER_PORT"
+	privateKeyPathEnvString = "PRIVATE_KEY_PATH"
 )
 
 // NewServerConfig is a constructor function for the ServerConfig type
@@ -23,7 +25,13 @@ func NewServer() (ServerConfig, error) {
 		return ServerConfig{}, fmt.Errorf("%w: %s", errMissingEnvVariable, serverPortEnvString)
 	}
 
+	pkPath, ok := os.LookupEnv(privateKeyPathEnvString)
+	if !ok {
+		return ServerConfig{}, fmt.Errorf("%w: %s", errMissingEnvVariable, serverPortEnvString)
+	}
+
 	return ServerConfig{
-		Port: port,
+		Port:           port,
+		PrivateKeyPath: pkPath,
 	}, nil
 }
