@@ -2,10 +2,13 @@ package sign
 
 import "crypto/sha256"
 
-type SHA256Hasher struct {
+type sha256Hasher struct {
 }
 
-func (hasher *SHA256Hasher) Hash(data []byte) []byte {
+func NewSHA256Hasher() *sha256Hasher {
+	return &sha256Hasher{}
+}
+func (hasher *sha256Hasher) Hash(data []byte) []byte {
 	hashCode := sha256.Sum256(data)
 	return hashCode[:]
 }

@@ -6,19 +6,21 @@ import (
 	"fmt"
 )
 
-type ECDSA struct {
+type ecdsaSigner struct {
 	privateKey *ecdsa.PrivateKey
 	hasher     Hasher
 	encoder    Encoder
 }
 
-func NewECDSA(privKey *ecdsa.PrivateKey) *ECDSA {
-	return &ECDSA{
+func NewECDSA(privKey *ecdsa.PrivateKey, hasher Hasher, encoder Encoder) *ecdsaSigner {
+	return &ecdsaSigner{
 		privateKey: privKey,
+		hasher:     hasher,
+		encoder:    encoder,
 	}
 }
 
-func (ec *ECDSA) Sign(message string) (string, error) {
+func (ec *ecdsaSigner) Sign(message string) (string, error) {
 	hash := ec.hasher.Hash([]byte(message))
 	signatureBytes, err := ecdsa.SignASN1(rand.Reader, ec.privateKey, hash)
 	if err != nil {
@@ -28,7 +30,7 @@ func (ec *ECDSA) Sign(message string) (string, error) {
 	return signature, nil
 }
 
-func (ec *ECDSA) Verify(signature, message string) (bool, error) {
+func (ec *ecdsaSigner) Verify(signature, message string) (bool, error) {
 	signatureBytes, err := ec.encoder.Decode(signature)
 	if err != nil {
 		return false, fmt.Errorf("signature string decode: %w", err)
