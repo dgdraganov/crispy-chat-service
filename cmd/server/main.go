@@ -8,12 +8,15 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dgdraganov/crispy-chat-service/core"
 	"github.com/dgdraganov/crispy-chat-service/internal/config"
+	"github.com/dgdraganov/crispy-chat-service/internal/core"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/auth"
+	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/listen"
+	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/push"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/middleware"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/router"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/server"
+	"github.com/dgdraganov/crispy-chat-service/pkg/redis"
 	"github.com/dgdraganov/crispy-chat-service/pkg/sign"
 )
 
@@ -25,27 +28,37 @@ func main() {
 		panic(fmt.Sprintf("load server config: %s", err))
 	}
 
-	// middleware initialization
+	// Middleware
 	i := middleware.NewRequestIdMiddleware(logger)
+	a := middleware.NewSignatureMiddleware(logger)
 
 	privateKey, err := sign.LoadPrivateKey(conf.PrivateKeyPath)
 	if err != nil {
-		logger.Error(
-			"failed loading private key",
-			"error", err,
-		)
+		panic("cannot load private key")
 	}
-	dSigner := sign.NewECDSA(privateKey, sign.NewSHA256Hasher(), sign.NewBase64Encoder())
-	coreChat := core.New(dSigner, "^[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$")
 
+	dSigner := sign.NewECDSA(privateKey, sign.NewSHA256Hasher(), sign.NewBase64Encoder())
+	redisStore := redis.New()
+	chatCore := core.New(dSigner, redisStore, logger)
+
+	// Handlers
 	var authHandler http.Handler
-	authHandler = auth.NewHandler("POST", coreChat, logger)
+	authHandler = auth.NewHandler("POST", chatCore, logger)
 	authHandler = i.Id(authHandler)
 
+	var pushHandler http.Handler
+	pushHandler = push.NewHandler("POST", chatCore, logger)
+	pushHandler = i.Id(a.Auth(pushHandler))
+
+	var listenHandler http.Handler
+	listenHandler = listen.NewHandler("GET", chatCore, logger)
+	listenHandler = i.Id(a.Auth(listenHandler))
+
+	// Router
 	router := router.New()
 	router.Register("/auth", authHandler)
-	//router.Register("/auth", ...)
-	//router.Register("/auth", ...)
+	router.Register("/push", pushHandler)
+	router.Register("/listen", listenHandler)
 
 	server := server.NewHTTP(conf.Port, router.ServeMux(), logger)
 	// starts the server asynchronously

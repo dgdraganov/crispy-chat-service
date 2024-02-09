@@ -1,4 +1,4 @@
-package auth
+package push
 
 import (
 	"encoding/json"
@@ -12,28 +12,29 @@ import (
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
 )
 
-type authHandler struct {
-	method string
-	auth   Authenticator
-	logs   *slog.Logger
+type pushHandler struct {
+	method    string
+	publisher Publisher
+	logs      *slog.Logger
 }
 
 // NewHandler is a cpnstructor function for the authHandler type
-func NewHandler(method string, authenticator Authenticator, logger *slog.Logger) *authHandler {
-	return &authHandler{
-		auth:   authenticator,
-		logs:   logger,
-		method: method,
+func NewHandler(method string, publisher Publisher, logger *slog.Logger) *pushHandler {
+	return &pushHandler{
+		publisher: publisher,
+		logs:      logger,
+		method:    method,
 	}
 }
 
 // ServeHTTP implements the http.Handler interface for the authHandler type
-func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(model.RequestID).(string)
+	signature := r.Context().Value(model.Signature).(string)
 
 	if r.Method != handler.method {
 		handler.logs.Warn(
-			"invalid request method for auth endpoint",
+			"invalid request method for push endpoint",
 			"request_method", r.Method,
 			"expected_request_method", handler.method,
 			"request_id", requestID,
@@ -45,7 +46,7 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			handler.logs.Error(
-				"write response",
+				"write response failed",
 				"request_id", requestID,
 				"error", err,
 			)
@@ -53,10 +54,10 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	authReq := model.AuthRequest{}
+	pushReq := model.PushRequest{}
 
 	// decode json request body
-	err := json.NewDecoder(r.Body).Decode(&authReq)
+	err := json.NewDecoder(r.Body).Decode(&pushReq)
 	if err != nil {
 		handler.logs.Error(
 			"json decode",
@@ -78,11 +79,11 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	signature, err := handler.auth.Sign(authReq.ClientID)
+	valid, err := handler.publisher.Verify(signature, pushReq.ClientID)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
 		err := common.WriteResponse(
 			w,
-			"invalid format for clientID! Format example: eccbaa4f-5075-40d6-81c6-e3dbdd3bbf9a",
+			"Invalid client ID",
 			http.StatusBadRequest,
 		)
 		if err != nil {
@@ -96,7 +97,43 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		handler.logs.Error(
-			"auth sign",
+			"publisher verify",
+			"request_id", requestID,
+			"error", err,
+		)
+		err := common.WriteResponse(
+			w,
+			"Something went wrong on our end!",
+			http.StatusInternalServerError,
+		)
+		if err != nil {
+			handler.logs.Error(
+				"write response",
+				"request_id", requestID,
+				"error", err,
+			)
+		}
+	}
+	if !valid {
+		err := common.WriteResponse(
+			w,
+			"Invalid signature",
+			http.StatusBadRequest,
+		)
+		if err != nil {
+			handler.logs.Error(
+				"write response",
+				"request_id", requestID,
+				"error", err,
+			)
+		}
+		return
+	}
+
+	err = handler.publisher.Publish(r.Context(), pushReq.ClientID, pushReq.Message)
+	if err != nil {
+		handler.logs.Error(
+			"publisher publish",
 			"request_id", requestID,
 			"error", err,
 		)
@@ -117,7 +154,7 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	err = common.WriteResponse(
 		w,
-		signature,
+		"Message published successfully!",
 		http.StatusOK,
 	)
 	if err != nil {

@@ -27,6 +27,7 @@ func (ec *ecdsaSigner) Sign(message string) (string, error) {
 		return "", fmt.Errorf("ecdsa sign: %w", err)
 	}
 	signature := ec.encoder.Encode(signatureBytes)
+
 	return signature, nil
 }
 
