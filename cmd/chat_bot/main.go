@@ -25,7 +25,7 @@ func main() {
 	name := os.Getenv("BOT_NAME")
 
 	if host == "" {
-		host = "localhost"
+		host = "chat-server"
 	}
 	if port == "" {
 		port = "9205"
@@ -36,10 +36,10 @@ func main() {
 		name = fmt.Sprintf("bot_%d", randomInt)
 	}
 
-	client := http.Client{}
 	authUrl := fmt.Sprintf("http://%s:%s/auth", host, port)
 	pushUrl := fmt.Sprintf("http://%s:%s/push", host, port)
 
+	client := http.Client{}
 	postBody, _ := json.Marshal(map[string]string{
 		"client_id": name,
 	})
@@ -109,7 +109,7 @@ func main() {
 			"body", string(b),
 		)
 		resp.Body.Close()
-		<-time.After(time.Second * 2)
+		<-time.After(time.Second * 10)
 	}
 }
 

@@ -136,6 +136,7 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		"request_id", requestID,
 		"client_id", clientId,
 	)
+
 	for {
 		select {
 		case msg := <-msgChan:
@@ -145,6 +146,8 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 					"request_id", requestID,
 					"error", err,
 				)
+				conn.Close()
+				return
 			}
 		case <-r.Context().Done():
 			handler.logger.Info(

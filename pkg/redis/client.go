@@ -53,14 +53,17 @@ func (store *redisStore) ReadMessages(ctx context.Context, room string) (<-chan 
 
 	go func() {
 		for {
-			// todo: add context.Done() for function return
 			messages, err := store.client.ZRange(room, offset, offset+maxMessages).Result()
+
 			if err != nil {
 				errorsChan <- fmt.Errorf("redis ZRange: %w", err)
-				<-time.After(500)
+				fmt.Println("err != nil")
+
+				<-time.After(time.Millisecond * 500)
+				continue
 			}
 			if len(messages) == 0 {
-				<-time.After(500)
+				<-time.After(time.Millisecond * 500)
 				continue
 			}
 			offset += int64(len(messages))

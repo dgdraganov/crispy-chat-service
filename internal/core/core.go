@@ -91,7 +91,7 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 					continue
 				}
 				msgTime := time.Unix(msgObj.Timestamp, 0).Format("15:04")
-				chatMessage := fmt.Sprintf("[%s]\t%s\t%s\n", msgTime, clientID, msgObj.Message)
+				chatMessage := fmt.Sprintf("[%s]\t%s\t%s\n", msgTime, msgObj.ClientID, msgObj.Message)
 				messagesChan <- chatMessage
 			case err := <-errors:
 				chat.logger.Error(
@@ -103,6 +103,7 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 			}
 		}
 	}()
+
 	return messagesChan
 }
 
