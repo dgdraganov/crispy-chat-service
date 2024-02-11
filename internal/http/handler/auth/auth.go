@@ -15,14 +15,14 @@ import (
 type authHandler struct {
 	method string
 	auth   Authenticator
-	logs   *slog.Logger
+	logger *slog.Logger
 }
 
 // NewHandler is a cpnstructor function for the authHandler type
 func NewHandler(method string, authenticator Authenticator, logger *slog.Logger) *authHandler {
 	return &authHandler{
 		auth:   authenticator,
-		logs:   logger,
+		logger: logger,
 		method: method,
 	}
 }
@@ -31,25 +31,21 @@ func NewHandler(method string, authenticator Authenticator, logger *slog.Logger)
 func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(model.RequestID).(string)
 
+	writer := common.NewWriter(handler.logger)
+
 	if r.Method != handler.method {
-		handler.logs.Warn(
+		handler.logger.Warn(
 			"invalid request method for auth endpoint",
 			"request_method", r.Method,
 			"expected_request_method", handler.method,
 			"request_id", requestID,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			fmt.Sprintf("invalid request method %s, expected method is %s", r.Method, handler.method),
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
@@ -58,73 +54,51 @@ func (handler *authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// decode json request body
 	err := json.NewDecoder(r.Body).Decode(&authReq)
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"json decode",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"invalid JSON request body",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
 	signature, err := handler.auth.Sign(authReq.ClientID)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"invalid format for clientID! Format example: eccbaa4f-5075-40d6-81c6-e3dbdd3bbf9a",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
+
 		return
 	}
 	if err != nil {
-		handler.logs.Error(
-			"auth sign",
+		handler.logger.Error(
+			"auth sign error",
 			"request_id", requestID,
 			"error", err,
+			"client_id", authReq.ClientID,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Something went wrong on our end!",
 			http.StatusInternalServerError,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
-	err = common.WriteResponse(
+	writer.Write(
+		r.Context(),
 		w,
 		signature,
 		http.StatusOK,
 	)
-	if err != nil {
-		handler.logs.Error(
-			"write response",
-			"request_id", requestID,
-			"error", err,
-		)
-	}
 }

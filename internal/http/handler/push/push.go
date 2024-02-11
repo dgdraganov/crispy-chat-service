@@ -15,14 +15,14 @@ import (
 type pushHandler struct {
 	method    string
 	publisher Publisher
-	logs      *slog.Logger
+	logger    *slog.Logger
 }
 
 // NewHandler is a cpnstructor function for the authHandler type
 func NewHandler(method string, publisher Publisher, logger *slog.Logger) *pushHandler {
 	return &pushHandler{
 		publisher: publisher,
-		logs:      logger,
+		logger:    logger,
 		method:    method,
 	}
 }
@@ -32,25 +32,21 @@ func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := r.Context().Value(model.RequestID).(string)
 	signature := r.Context().Value(model.Signature).(string)
 
+	writer := common.NewWriter(handler.logger)
+
 	if r.Method != handler.method {
-		handler.logs.Warn(
+		handler.logger.Warn(
 			"invalid request method for push endpoint",
 			"request_method", r.Method,
 			"expected_request_method", handler.method,
 			"request_id", requestID,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			fmt.Sprintf("invalid request method %s, expected method is %s", r.Method, handler.method),
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response failed",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
@@ -59,109 +55,81 @@ func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// decode json request body
 	err := json.NewDecoder(r.Body).Decode(&pushReq)
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"json decode",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"invalid JSON request body",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
+
 		return
 	}
 
 	valid, err := handler.publisher.Verify(signature, pushReq.ClientID)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Invalid client ID",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"publisher verify",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Something went wrong on our end!",
 			http.StatusInternalServerError,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
+		return
 	}
 	if !valid {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Invalid signature",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
 	err = handler.publisher.Publish(r.Context(), pushReq.ClientID, pushReq.Message)
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"publisher publish",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Something went wrong on our end!",
 			http.StatusInternalServerError,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
-	err = common.WriteResponse(
+	handler.logger.Info(
+		"message published successfully",
+		"request_id", requestID,
+		"client_id", pushReq.ClientID,
+	)
+
+	writer.Write(
+		r.Context(),
 		w,
 		"Message published successfully!",
 		http.StatusOK,
 	)
-	if err != nil {
-		handler.logs.Error(
-			"write response",
-			"request_id", requestID,
-			"error", err,
-		)
-	}
 }

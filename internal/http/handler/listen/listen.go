@@ -16,14 +16,14 @@ import (
 type listenHandler struct {
 	method   string
 	listener Listener
-	logs     *slog.Logger
+	logger   *slog.Logger
 }
 
 // NewHandler is a cpnstructor function for the listenHandler type
 func NewHandler(method string, listener Listener, logger *slog.Logger) *listenHandler {
 	return &listenHandler{
 		listener: listener,
-		logs:     logger,
+		logger:   logger,
 		method:   method,
 	}
 }
@@ -33,115 +33,81 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	requestID := r.Context().Value(model.RequestID).(string)
 	signature := r.Context().Value(model.Signature).(string)
 
+	writer := common.NewWriter(handler.logger)
+
 	if r.Method != handler.method {
-		handler.logs.Warn(
-			"invalid request method for push endpoint",
+		handler.logger.Warn(
+			"invalid request method for /push endpoint",
 			"request_method", r.Method,
 			"expected_request_method", handler.method,
 			"request_id", requestID,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			fmt.Sprintf("invalid request method %s, expected method is %s", r.Method, handler.method),
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response failed",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
 	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"url parse query",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
-			"invalid JSON request body",
+			"Invalid URL!",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
 	clientId := q.Get("client_id")
 	if clientId == "" {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
-			"missing client id query parameter",
+			"Missing client_id query parameter!",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
 	valid, err := handler.listener.Verify(signature, clientId)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
-			"Invalid client ID",
+			"Invalid client ID!",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"listener verify",
 			"request_id", requestID,
 			"error", err,
 		)
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Something went wrong on our end!",
 			http.StatusInternalServerError,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 	}
 	if !valid {
-		err := common.WriteResponse(
+		writer.Write(
+			r.Context(),
 			w,
 			"Invalid signature",
 			http.StatusBadRequest,
 		)
-		if err != nil {
-			handler.logs.Error(
-				"write response",
-				"request_id", requestID,
-				"error", err,
-			)
-		}
 		return
 	}
 
@@ -156,7 +122,7 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		handler.logs.Error(
+		handler.logger.Error(
 			"upgrade to websocet",
 			"request_id", requestID,
 			"error", err,
@@ -165,27 +131,27 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 	defer conn.Close()
 
-	handler.logs.Info(
+	handler.logger.Info(
 		"upgraded to websockets",
 		"request_id", requestID,
+		"client_id", clientId,
 	)
 	for {
 		select {
 		case msg := <-msgChan:
 			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-				handler.logs.Error(
-					"write message",
+				handler.logger.Error(
+					"write message error",
 					"request_id", requestID,
 					"error", err,
 				)
 			}
 		case <-r.Context().Done():
-			handler.logs.Info(
+			handler.logger.Info(
 				"closing connection",
 				"request_id", requestID,
 			)
 			return
 		}
-
 	}
 }
