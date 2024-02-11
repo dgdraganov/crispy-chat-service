@@ -1,11 +1,11 @@
 package listen
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/core"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/common"
@@ -55,12 +55,10 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	listenReq := model.ListenRequest{}
-	// decode json request body
-	err := json.NewDecoder(r.Body).Decode(&listenReq)
+	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		handler.logs.Error(
-			"json decode",
+			"url parse query",
 			"request_id", requestID,
 			"error", err,
 		)
@@ -79,7 +77,24 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	valid, err := handler.listener.Verify(signature, listenReq.ClientID)
+	clientId := q.Get("client_id")
+	if clientId == "" {
+		err := common.WriteResponse(
+			w,
+			"missing client id query parameter",
+			http.StatusBadRequest,
+		)
+		if err != nil {
+			handler.logs.Error(
+				"write response",
+				"request_id", requestID,
+				"error", err,
+			)
+		}
+		return
+	}
+
+	valid, err := handler.listener.Verify(signature, clientId)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
 		err := common.WriteResponse(
 			w,
@@ -130,7 +145,7 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	msgChan := handler.listener.ReadMessages(r.Context(), listenReq.ClientID)
+	msgChan := handler.listener.ReadMessages(r.Context(), clientId)
 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -139,25 +154,25 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
-	ws, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		handler.logs.Error(
-			"websocket upgrade",
+			"upgrade to websocet",
 			"request_id", requestID,
 			"error", err,
 		)
 		return
 	}
+	defer conn.Close()
 
 	handler.logs.Info(
 		"upgraded to websockets",
 		"request_id", requestID,
 	)
-
 	for {
 		select {
 		case msg := <-msgChan:
-			if err := ws.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 				handler.logs.Error(
 					"write message",
 					"request_id", requestID,

@@ -73,6 +73,7 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 	requestID := ctx.Value(model.RequestID).(string)
 
 	messagesChan := make(chan string)
+
 	go func() {
 		messages, errors := chat.dbClient.ReadMessages(ctx, "common_room")
 		for {

@@ -7,7 +7,7 @@ services:
       context: .
       dockerfile: Dockerfile.server
     ports:
-      - "9205:9205" 
+      - "9205:9205"
     restart: unless-stopped
     env_file:
       - "dev.conf"
@@ -16,3 +16,22 @@ services:
     image: 'bitnami/redis:latest'
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
+  chat-bot-1:
+    container_name: chat_bot_jim
+    build:
+      context: .
+      dockerfile: Dockerfile.chat.bot
+    environment:
+      - SERVICE_HOST=chat-server
+      - SERVICE_PORT=9205
+      - BOT_NAME=Jim
+  chat-bot-2:
+    container_name: chat_bot_pam
+    build:
+      context: .
+      dockerfile: Dockerfile.chat.bot
+    environment:
+      - SERVICE_HOST=chat-server
+      - SERVICE_PORT=9205
+      - BOT_NAME=Pam
+

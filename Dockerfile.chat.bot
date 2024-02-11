@@ -1,0 +1,19 @@
+
+FROM golang:1.21 AS build 
+
+WORKDIR /server
+
+COPY . .
+
+RUN go mod download
+RUN go build -o /chat_bot/app cmd/chat_bot/main.go
+
+
+FROM ubuntu:22.04
+
+WORKDIR /chat_bot
+
+COPY --from=build /chat_bot/app /chat_bot/app
+
+EXPOSE 9205
+CMD ["/chat_bot/app"]
