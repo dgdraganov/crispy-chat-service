@@ -10,12 +10,12 @@ import (
 )
 
 type requestIdMiddleware struct {
-	logs *slog.Logger
+	logger *slog.Logger
 }
 
 func NewRequestIdMiddleware(logger *slog.Logger) *requestIdMiddleware {
 	return &requestIdMiddleware{
-		logs: logger,
+		logger: logger,
 	}
 }
 

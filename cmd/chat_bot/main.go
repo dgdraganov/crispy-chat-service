@@ -5,20 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"log/slog"
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
+	"github.com/gorilla/websocket"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	msgGen := MessageGenerator()
+	genMessage := MessageGenerator()
 
 	host := os.Getenv("SERVICE_HOST")
 	port := os.Getenv("SERVICE_PORT")
@@ -37,8 +41,9 @@ func main() {
 	}
 
 	authUrl := fmt.Sprintf("http://%s:%s/auth", host, port)
-	pushUrl := fmt.Sprintf("http://%s:%s/push", host, port)
+	pushUrl := fmt.Sprintf("ws://%s:%s/push?client_id=%s", host, port, name)
 
+	// Authenticate with the server
 	client := http.Client{}
 	postBody, _ := json.Marshal(map[string]string{
 		"client_id": name,
@@ -71,46 +76,50 @@ func main() {
 		return
 	}
 
-	for {
-		postBody, _ := json.Marshal(map[string]string{
-			"client_id": name,
-			"message":   msgGen(),
-		})
-		responseBody := bytes.NewBuffer(postBody)
-		req, err := http.NewRequest("POST", pushUrl, responseBody)
-		if err != nil {
-			logger.Error(
-				"http NewRequest",
-				"error", err,
-			)
-			continue
-		}
-		req.Header.Add("Signature", authMsg.Message)
-		resp, err := client.Do(req)
-		if err != nil {
-			logger.Error(
-				"client post",
-				"error", err,
-				"url", pushUrl,
-			)
-			continue
-		}
-		b, err := io.ReadAll(resp.Body)
-		if err != nil {
-			logger.Error(
-				"io read all",
-				"error", err,
-			)
-			continue
-		}
-
-		logger.Info(
-			"server response",
-			"body", string(b),
-		)
-		resp.Body.Close()
-		<-time.After(time.Second * 10)
+	// websocket connection
+	headers := map[string][]string{
+		"Signature": {authMsg.Message},
 	}
+	conn, _, err := websocket.DefaultDialer.Dial(pushUrl, headers)
+	if err != nil {
+		log.Fatal("ws dial:", err)
+	}
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+Loop:
+	for {
+
+		select {
+		case <-sig:
+			conn.Close()
+			if err := conn.WriteMessage(websocket.CloseMessage, []byte("closing connection")); err != nil {
+				logger.Error(
+					"conn write message",
+					"error", err,
+				)
+			}
+			break Loop
+		default:
+			newMessage := genMessage()
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(newMessage)); err != nil {
+				logger.Error(
+					"conn write message",
+					"error", err,
+				)
+				continue
+			}
+			logger.Info(
+				"message sent successfully",
+				"client_id", name,
+			)
+			<-time.After(time.Second * 5)
+		}
+	}
+	logger.Info(
+		"terminating chat connection",
+	)
 }
 
 func MessageGenerator() func() string {

@@ -23,7 +23,7 @@ func main() {
 
 	host := os.Getenv("SERVICE_HOST")
 	port := os.Getenv("SERVICE_PORT")
-	clientID := os.Getenv("CLIENT_ID")
+	name := os.Getenv("CLIENT_ID")
 
 	if host == "" {
 		host = "localhost"
@@ -31,17 +31,18 @@ func main() {
 	if port == "" {
 		port = "9205"
 	}
-	if clientID == "" {
+	if name == "" {
 		randGen := rand.New(rand.NewSource(time.Now().UnixNano()))
 		randomInt := randGen.Intn(89) + 10
-		clientID = fmt.Sprintf("client_%d", randomInt)
+		name = fmt.Sprintf("client_%d", randomInt)
 	}
 
 	authUrl := fmt.Sprintf("http://%s:%s/auth", host, port)
-	listenUrl := fmt.Sprintf("ws://%s:%s/listen?client_id=%s", host, port, clientID)
+	listenUrl := fmt.Sprintf("ws://%s:%s/listen?client_id=%s", host, port, name)
 
+	// Authenticate
 	postBody, _ := json.Marshal(map[string]string{
-		"client_id": clientID,
+		"client_id": name,
 	})
 	client := http.Client{}
 	responseBody := bytes.NewBuffer(postBody)
@@ -71,7 +72,8 @@ func main() {
 		)
 		return
 	}
-	fmt.Println(authMsg.Message)
+
+	// websocket connection
 	headers := map[string][]string{
 		"Signature": {authMsg.Message},
 	}
@@ -88,9 +90,6 @@ Loop:
 		select {
 		case <-sig:
 			c.Close()
-			logger.Info(
-				"closing chat connection",
-			)
 			break Loop
 		default:
 			_, message, err := c.ReadMessage()
@@ -104,5 +103,7 @@ Loop:
 			fmt.Printf("%s", string(message))
 		}
 	}
-
+	logger.Info(
+		"terminating chat connection",
+	)
 }

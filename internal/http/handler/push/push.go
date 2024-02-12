@@ -1,15 +1,16 @@
 package push
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/core"
-	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/common"
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
+	"github.com/dgdraganov/crispy-chat-service/pkg/common"
+	"github.com/gorilla/websocket"
 )
 
 type pushHandler struct {
@@ -50,39 +51,46 @@ func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pushReq := model.PushRequest{}
-
-	// decode json request body
-	err := json.NewDecoder(r.Body).Decode(&pushReq)
+	q, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		handler.logger.Error(
-			"json decode",
+			"url parse query",
 			"request_id", requestID,
 			"error", err,
 		)
 		writer.Write(
 			r.Context(),
 			w,
-			"invalid JSON request body",
+			"Invalid URL!",
 			http.StatusBadRequest,
 		)
-
 		return
 	}
 
-	valid, err := handler.publisher.Verify(signature, pushReq.ClientID)
+	clientId := q.Get("client_id")
+	if clientId == "" {
+		writer.Write(
+			r.Context(),
+			w,
+			"Missing client_id query parameter!",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	valid, err := handler.publisher.Verify(signature, clientId)
 	if errors.Is(err, core.ErrInvalidIDFormat) {
 		writer.Write(
 			r.Context(),
 			w,
-			"Invalid client ID",
+			"Invalid client ID!",
 			http.StatusBadRequest,
 		)
 		return
 	}
 	if err != nil {
 		handler.logger.Error(
-			"publisher verify",
+			"listener verify",
 			"request_id", requestID,
 			"error", err,
 		)
@@ -92,7 +100,6 @@ func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"Something went wrong on our end!",
 			http.StatusInternalServerError,
 		)
-		return
 	}
 	if !valid {
 		writer.Write(
@@ -104,32 +111,70 @@ func (handler *pushHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = handler.publisher.Publish(r.Context(), pushReq.ClientID, pushReq.Message)
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		handler.logger.Error(
-			"publisher publish",
+			"upgrade to websocet",
 			"request_id", requestID,
 			"error", err,
-		)
-		writer.Write(
-			r.Context(),
-			w,
-			"Something went wrong on our end!",
-			http.StatusInternalServerError,
 		)
 		return
 	}
 
 	handler.logger.Info(
-		"message published successfully",
+		"upgraded to websockets",
 		"request_id", requestID,
-		"client_id", pushReq.ClientID,
+		"client_id", clientId,
 	)
 
-	writer.Write(
-		r.Context(),
-		w,
-		"Message published successfully!",
-		http.StatusOK,
-	)
+	for {
+		msgType, b, err := conn.ReadMessage()
+		if err != nil {
+			handler.logger.Error(
+				"write message error",
+				"request_id", requestID,
+				"error", err,
+			)
+			conn.Close()
+			return
+		}
+
+		if msgType == websocket.CloseMessage {
+			conn.Close()
+			handler.logger.Info(
+				"gracefully terminating ws connection",
+				"request_id", requestID,
+			)
+			break
+		}
+
+		err = handler.publisher.Publish(r.Context(), clientId, string(b))
+		if err != nil {
+			handler.logger.Error(
+				"publisher publish",
+				"request_id", requestID,
+				"error", err,
+			)
+			writer.Write(
+				r.Context(),
+				w,
+				"Something went wrong on our end!",
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		handler.logger.Info(
+			"message published successfully",
+			"request_id", requestID,
+			"client_id", clientId,
+		)
+	}
+
 }

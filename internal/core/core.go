@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ var ErrInvalidSignature error = errors.New("client signature not valid")
 type chatService struct {
 	dSigner  DigitalSigner
 	dbClient DBClient
-	idRegex  string
 	logger   *slog.Logger
 	//chatRoom string
 }
@@ -35,12 +33,8 @@ func New(ds DigitalSigner, dbClient DBClient, logger *slog.Logger) *chatService 
 }
 
 func (chat *chatService) Sign(clientID string) (string, error) {
-	match, err := regexp.MatchString(chat.idRegex, clientID)
-	if err != nil {
-		return "", fmt.Errorf("regex Match: %w", err)
-	}
-	if !match {
-		return "", ErrInvalidIDFormat
+	if clientID == "" {
+		return "", fmt.Errorf("invalid client id: %w", ErrInvalidIDFormat)
 	}
 
 	signature, err := chat.dSigner.Sign(clientID)

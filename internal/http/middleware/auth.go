@@ -9,12 +9,12 @@ import (
 )
 
 type signatureMiddleware struct {
-	logs *slog.Logger
+	logger *slog.Logger
 }
 
 func NewSignatureMiddleware(logger *slog.Logger) *signatureMiddleware {
 	return &signatureMiddleware{
-		logs: logger,
+		logger: logger,
 	}
 }
 

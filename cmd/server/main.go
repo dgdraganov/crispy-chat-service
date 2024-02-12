@@ -14,7 +14,6 @@ import (
 	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/listen"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/push"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/middleware"
-	"github.com/dgdraganov/crispy-chat-service/internal/http/router"
 	"github.com/dgdraganov/crispy-chat-service/internal/http/server"
 	"github.com/dgdraganov/crispy-chat-service/pkg/redis"
 	"github.com/dgdraganov/crispy-chat-service/pkg/sign"
@@ -31,6 +30,7 @@ func main() {
 	// Middleware
 	i := middleware.NewRequestIdMiddleware(logger)
 	a := middleware.NewSignatureMiddleware(logger)
+	l := middleware.NewLologMiddleware(logger)
 
 	privateKey, err := sign.LoadPrivateKey(conf.PrivateKeyPath)
 	if err != nil {
@@ -44,24 +44,24 @@ func main() {
 	// Handlers
 	var authHandler http.Handler
 	authHandler = auth.NewHandler("POST", chatCore, logger)
-	authHandler = i.Id(authHandler)
+	authHandler = i.Id(l.Log(authHandler))
 
 	var pushHandler http.Handler
-	pushHandler = push.NewHandler("POST", chatCore, logger)
-	pushHandler = i.Id(a.Auth(pushHandler))
+	pushHandler = push.NewHandler("GET", chatCore, logger)
+	pushHandler = i.Id(l.Log(a.Auth(pushHandler)))
 
 	var listenHandler http.Handler
 	listenHandler = listen.NewHandler("GET", chatCore, logger)
-	listenHandler = i.Id(a.Auth(listenHandler))
+	listenHandler = i.Id(l.Log(a.Auth(listenHandler)))
 
 	// Router
-	router := router.New()
-	router.Register("/auth", authHandler)
-	router.Register("/push", pushHandler)
-	router.Register("/listen", listenHandler)
+	mux := &http.ServeMux{}
+	mux.Handle("/auth", authHandler)
+	mux.Handle("/push", pushHandler)
+	mux.Handle("/listen", listenHandler)
 
-	server := server.NewHTTP(conf.Port, router.ServeMux(), logger)
-	// starts the server asynchronously
+	server := server.NewHTTP(conf.Port, mux, logger)
+	// start the server asynchronously
 	server.Start(conf.Port)
 
 	sig := make(chan os.Signal, 1)

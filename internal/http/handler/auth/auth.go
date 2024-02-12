@@ -8,8 +8,8 @@ import (
 	"net/http"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/core"
-	"github.com/dgdraganov/crispy-chat-service/internal/http/handler/common"
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
+	"github.com/dgdraganov/crispy-chat-service/pkg/common"
 )
 
 type authHandler struct {

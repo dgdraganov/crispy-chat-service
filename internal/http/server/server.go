@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
 type httpServer struct {
-	logs   *slog.Logger
+	logger *slog.Logger
 	server *http.Server
 }
 
@@ -20,7 +21,7 @@ func NewHTTP(port string, serveMux *http.ServeMux, logger *slog.Logger) *httpSer
 	}
 
 	return &httpServer{
-		logs:   logger,
+		logger: logger,
 		server: server,
 	}
 }
@@ -28,15 +29,16 @@ func NewHTTP(port string, serveMux *http.ServeMux, logger *slog.Logger) *httpSer
 // Start runs an http server on the specified port
 func (s *httpServer) Start(port string) {
 	go func() {
-		s.logs.Info(
+		s.logger.Info(
 			"Server starting...",
 			"service_port", port,
 		)
 		if err := s.server.ListenAndServe(); err != nil {
-			slog.Error(
+			s.logger.Error(
 				"server failed unexpectedly",
 				"error", err,
 			)
+			os.Exit(1)
 		}
 	}()
 }
