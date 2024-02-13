@@ -34,7 +34,7 @@ func main() {
 
 	privateKey, err := sign.LoadPrivateKey(conf.PrivateKeyPath)
 	if err != nil {
-		panic("cannot load private key")
+		panic(fmt.Sprintf("load private key: %s", err))
 	}
 
 	dSigner := sign.NewECDSA(privateKey, sign.NewSHA256Hasher(), sign.NewBase64Encoder())

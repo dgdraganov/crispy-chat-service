@@ -21,7 +21,7 @@ func New(redisAddres string) *redisStore {
 		DB:       0,
 	})
 	for {
-		if err := client.Ping().Err(); err == nil {
+		if err := client.Ping().Err(); err != nil {
 			slog.Error(
 				"error connection to redis",
 				"error", err,

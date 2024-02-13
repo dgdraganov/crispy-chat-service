@@ -11,7 +11,7 @@ In the terminal navigate to the project root directory.
 
 The service needs a private key in order to generate digital signatures. The `openssl` command provided below will generate a ECDSA key:
 ```
-    openssl ecparam -name secp256k1 -genkey -noout -out private.pem
+    openssl ecparam -name secp521r1 -genkey -noout -out private.pem
 ```
 
 The following make command will run the chat service and the redis client in detached mode:
