@@ -43,7 +43,7 @@ func main() {
 	authUrl := fmt.Sprintf("http://%s:%s/auth", host, port)
 	pushUrl := fmt.Sprintf("ws://%s:%s/push?client_id=%s", host, port, name)
 
-	// Authenticate with the server
+	// Authenticate with the server``
 	client := http.Client{}
 	postBody, _ := json.Marshal(map[string]string{
 		"client_id": name,
@@ -90,13 +90,11 @@ func main() {
 
 Loop:
 	for {
-
 		select {
 		case <-sig:
-			conn.Close()
-			if err := conn.WriteMessage(websocket.CloseMessage, []byte("closing connection")); err != nil {
+			if err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "woops")); err != nil {
 				logger.Error(
-					"conn write message",
+					"sending close conn message failed",
 					"error", err,
 				)
 			}
@@ -108,15 +106,16 @@ Loop:
 					"conn write message",
 					"error", err,
 				)
-				continue
+				return
 			}
 			logger.Info(
 				"message sent successfully",
 				"client_id", name,
 			)
-			<-time.After(time.Second * 5)
+			<-time.After(time.Second * 4)
 		}
 	}
+	//conn.Close()
 	logger.Info(
 		"terminating chat connection",
 	)

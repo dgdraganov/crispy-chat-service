@@ -77,7 +77,7 @@ func main() {
 	headers := map[string][]string{
 		"Signature": {authMsg.Message},
 	}
-	c, _, err := websocket.DefaultDialer.Dial(listenUrl, headers)
+	conn, _, err := websocket.DefaultDialer.Dial(listenUrl, headers)
 	if err != nil {
 		log.Fatal("ws dial:", err)
 	}
@@ -89,16 +89,23 @@ Loop:
 	for {
 		select {
 		case <-sig:
-			c.Close()
+			err := conn.WriteMessage(websocket.CloseMessage, []byte("closing connection"))
+			if err != nil {
+				logger.Error(
+					"conn write message",
+					"error", err,
+				)
+			}
+			conn.Close()
 			break Loop
 		default:
-			_, message, err := c.ReadMessage()
+			_, message, err := conn.ReadMessage()
 			if err != nil {
 				logger.Error(
 					"ws connection read:",
 					"error", err,
 				)
-				continue
+				return
 			}
 			fmt.Printf("%s", string(message))
 		}

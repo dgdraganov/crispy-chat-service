@@ -72,7 +72,10 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 		messages, errors := chat.dbClient.ReadMessages(ctx, "common_room")
 		for {
 			select {
-			case msg := <-messages:
+			case msg, ok := <-messages:
+				if !ok {
+					return
+				}
 				msgObj := model.ChatMessage{}
 				err := json.Unmarshal([]byte(msg), &msgObj)
 				if err != nil {
@@ -86,8 +89,12 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 				}
 				msgTime := time.Unix(msgObj.Timestamp, 0).Format("15:04")
 				chatMessage := fmt.Sprintf("[%s]\t%s\t%s\n", msgTime, msgObj.ClientID, msgObj.Message)
+				fmt.Println(chatMessage)
 				messagesChan <- chatMessage
-			case err := <-errors:
+			case err, ok := <-errors:
+				if !ok {
+					return
+				}
 				chat.logger.Error(
 					"redis read messages",
 					"error", err,

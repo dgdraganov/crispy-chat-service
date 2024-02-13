@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/core"
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
@@ -137,6 +138,27 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		"client_id", clientId,
 	)
 
+	done := make(chan struct{})
+	go func() {
+		for {
+			mt, _, err := conn.ReadMessage()
+			if err != nil {
+				handler.logger.Error(
+					"conn read message",
+					"error", err,
+				)
+				done <- struct{}{}
+				break
+			}
+			if mt == websocket.CloseMessage {
+				handler.logger.Info("sending close message")
+				done <- struct{}{}
+				break
+			}
+		}
+	}()
+
+Loop:
 	for {
 		select {
 		case msg := <-msgChan:
@@ -146,15 +168,26 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 					"request_id", requestID,
 					"error", err,
 				)
-				conn.Close()
-				return
+				break Loop
 			}
+		case <-done:
+			break Loop
 		case <-r.Context().Done():
 			handler.logger.Info(
 				"closing connection",
 				"request_id", requestID,
 			)
-			return
+			if err := conn.WriteMessage(websocket.CloseMessage, []byte("closing connection")); err != nil {
+				handler.logger.Error(
+					"sending close message failed",
+					"request_id", requestID,
+					"error", err,
+				)
+			}
+			break Loop
+		default:
+			<-time.After(time.Millisecond * 100)
 		}
+
 	}
 }
