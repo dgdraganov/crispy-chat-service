@@ -9,16 +9,15 @@ import (
 var errMissingEnvVariable error = errors.New("environment variable not found")
 
 type ServerConfig struct {
-	Port           string
-	PrivateKeyPath string
-	RedisAddress   string
+	Port         string
+	RedisAddress string
+	PrivateKey   string
 }
 
 const (
-	serverPortEnvString             = "SERVER_PORT"
-	privateKeyPathEnvString         = "PRIVATE_KEY_PATH"
-	redisArrdessEnvString           = "REDIS_ADDRESS"
-	privateKeyredisArrdessEnvString = "PRIVATE_KEY"
+	serverPortEnvString   = "SERVER_PORT"
+	redisArrdessEnvString = "REDIS_ADDRESS"
+	privateKeyEnvString   = "PRIVATE_KEY"
 )
 
 // NewServerConfig is a constructor function for the ServerConfig type
@@ -28,9 +27,9 @@ func NewServer() (ServerConfig, error) {
 		return ServerConfig{}, fmt.Errorf("%w: %s", errMissingEnvVariable, serverPortEnvString)
 	}
 
-	pkPath, ok := os.LookupEnv(privateKeyPathEnvString)
+	privKey, ok := os.LookupEnv(privateKeyEnvString)
 	if !ok {
-		return ServerConfig{}, fmt.Errorf("%w: %s", errMissingEnvVariable, privateKeyPathEnvString)
+		return ServerConfig{}, fmt.Errorf("%w: %s", errMissingEnvVariable, privateKeyEnvString)
 	}
 	redisAddr, ok := os.LookupEnv(redisArrdessEnvString)
 	if !ok {
@@ -38,8 +37,8 @@ func NewServer() (ServerConfig, error) {
 	}
 
 	return ServerConfig{
-		Port:           port,
-		PrivateKeyPath: pkPath,
-		RedisAddress:   redisAddr,
+		Port:         port,
+		PrivateKey:   privKey,
+		RedisAddress: redisAddr,
 	}, nil
 }
