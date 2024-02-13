@@ -38,7 +38,7 @@ func main() {
 	}
 
 	dSigner := sign.NewECDSA(privateKey, sign.NewSHA256Hasher(), sign.NewBase64Encoder())
-	redisStore := redis.New()
+	redisStore := redis.New(conf.RedisAddress)
 	chatCore := core.New(dSigner, redisStore, logger)
 
 	// Handlers

@@ -9,8 +9,10 @@ services:
     ports:
       - "9205:9205"
     restart: unless-stopped
-    env_file:
-      - "dev.conf"
+    environment:
+      - SERVER_PORT=9205
+      - PRIVATE_KEY_PATH=./private.pem
+      - REDIS_ADDRESS=redis:6379
   redis:
     container_name: redis
     image: 'bitnami/redis:latest'
@@ -34,4 +36,13 @@ services:
       - SERVICE_HOST=chat-server
       - SERVICE_PORT=9205
       - BOT_NAME=Pam
+  client:
+    container_name: client
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    environment:
+      - SERVICE_HOST=chat-server
+      - SERVICE_PORT=9205
+      - CLIENT_ID=Anonymous
 

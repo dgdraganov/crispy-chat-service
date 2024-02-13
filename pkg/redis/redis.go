@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -13,15 +14,23 @@ type redisStore struct {
 	client *redis.Client
 }
 
-func New() *redisStore {
+func New(redisAddres string) *redisStore {
 	client := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379",
+		Addr:     redisAddres,
 		Password: "",
 		DB:       0,
 	})
-
-	if err := client.Ping().Err(); err != nil {
-		panic(fmt.Sprintf("ping redis client: %s", err))
+	for {
+		if err := client.Ping().Err(); err == nil {
+			slog.Error(
+				"error connection to redis",
+				"error", err,
+				"redis_address", redisAddres,
+			)
+			<-time.After(time.Second * 1)
+			continue
+		}
+		break
 	}
 
 	return &redisStore{
