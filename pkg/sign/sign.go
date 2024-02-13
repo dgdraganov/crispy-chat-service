@@ -12,6 +12,7 @@ type ecdsaSigner struct {
 	encoder    Encoder
 }
 
+// NewECDSA is a constructor function for the ecdsaSigner type
 func NewECDSA(privKey *ecdsa.PrivateKey, hasher Hasher, encoder Encoder) *ecdsaSigner {
 	return &ecdsaSigner{
 		privateKey: privKey,
@@ -20,6 +21,7 @@ func NewECDSA(privKey *ecdsa.PrivateKey, hasher Hasher, encoder Encoder) *ecdsaS
 	}
 }
 
+// Sign generates a digital signature based on the provided message
 func (ec *ecdsaSigner) Sign(message string) (string, error) {
 	hash := ec.hasher.Hash([]byte(message))
 	signatureBytes, err := ecdsa.SignASN1(rand.Reader, ec.privateKey, hash)
@@ -31,6 +33,7 @@ func (ec *ecdsaSigner) Sign(message string) (string, error) {
 	return signature, nil
 }
 
+// Verify checks the validity of the given signature
 func (ec *ecdsaSigner) Verify(signature, message string) (bool, error) {
 	signatureBytes, err := ec.encoder.Decode(signature)
 	if err != nil {

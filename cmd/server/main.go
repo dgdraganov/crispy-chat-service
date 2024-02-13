@@ -32,11 +32,13 @@ func main() {
 	a := middleware.NewSignatureMiddleware(logger)
 	l := middleware.NewLologMiddleware(logger)
 
+	// Load private key
 	privateKey, err := sign.LoadPrivateKey(conf.PrivateKeyPath)
 	if err != nil {
 		panic(fmt.Sprintf("load private key: %s", err))
 	}
 
+	// Instantiate core functionality
 	dSigner := sign.NewECDSA(privateKey, sign.NewSHA256Hasher(), sign.NewBase64Encoder())
 	redisStore := redis.New(conf.RedisAddress)
 	chatCore := core.New(dSigner, redisStore, logger)
@@ -61,9 +63,11 @@ func main() {
 	mux.Handle("/listen", listenHandler)
 
 	server := server.NewHTTP(conf.Port, mux, logger)
-	// start the server asynchronously
+
+	// Start the server asynchronously
 	server.Start(conf.Port)
 
+	// Graceful shutdown
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	<-sig

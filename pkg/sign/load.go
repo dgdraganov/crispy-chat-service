@@ -8,6 +8,7 @@ import (
 	"os"
 )
 
+// LoadPrivateKey loads a EC private key
 func LoadPrivateKey(filePath string) (*ecdsa.PrivateKey, error) {
 	pkBytes, err := os.ReadFile("./private.pem")
 	if err != nil {

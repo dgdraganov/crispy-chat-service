@@ -14,6 +14,7 @@ type redisStore struct {
 	client *redis.Client
 }
 
+// New is a constructor function for the redisStore type
 func New(redisAddres string) *redisStore {
 	client := redis.NewClient(&redis.Options{
 		Addr:     redisAddres,
@@ -38,6 +39,7 @@ func New(redisAddres string) *redisStore {
 	}
 }
 
+// PublishMessage saves a message in the current redis instance
 func (store *redisStore) PublishMessage(room string, sortKey float64, message any) (int64, error) {
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
@@ -54,6 +56,7 @@ func (store *redisStore) PublishMessage(room string, sortKey float64, message an
 	return result, nil
 }
 
+// ReadMessages reads messages from the current redis instance
 func (store *redisStore) ReadMessages(ctx context.Context, room string) (<-chan string, <-chan error) {
 	msgsChan := make(chan string)
 	errorsChan := make(chan error)

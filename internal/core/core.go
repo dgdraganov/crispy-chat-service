@@ -19,19 +19,17 @@ type chatService struct {
 	dSigner  DigitalSigner
 	dbClient DBClient
 	logger   *slog.Logger
-	//chatRoom string
 }
 
 func New(ds DigitalSigner, dbClient DBClient, logger *slog.Logger) *chatService {
-	//room := uuid.New().String()
 	return &chatService{
 		dSigner:  ds,
 		dbClient: dbClient,
 		logger:   logger,
-		//chatRoom: room,
 	}
 }
 
+// Sign will generate a digital signature from the clientID
 func (chat *chatService) Sign(clientID string) (string, error) {
 	if clientID == "" {
 		return "", fmt.Errorf("invalid client id: %w", ErrInvalidIDFormat)
@@ -45,6 +43,7 @@ func (chat *chatService) Sign(clientID string) (string, error) {
 	return signature, nil
 }
 
+// Publish saves a message to the underlying db store
 func (chat *chatService) Publish(ctx context.Context, clientID, message string) error {
 	if message == "" {
 		return errors.New("message is empty")
@@ -63,6 +62,7 @@ func (chat *chatService) Publish(ctx context.Context, clientID, message string) 
 	return nil
 }
 
+// ReadMessages returns a channel that will receive new messages read from the underlying db store
 func (chat *chatService) ReadMessages(ctx context.Context, clientID string) chan string {
 	requestID := ctx.Value(model.RequestID).(string)
 
@@ -107,6 +107,7 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) chan
 	return messagesChan
 }
 
+// Verify checks the validity of a digital signature
 func (chat *chatService) Verify(signature, clientID string) (bool, error) {
 	if len(clientID) == 0 || strings.Contains(clientID, " ") {
 		return false, ErrInvalidIDFormat

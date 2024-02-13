@@ -17,7 +17,7 @@ func NewLologMiddleware(logger *slog.Logger) *logMiddleware {
 	}
 }
 
-// Id implements the middleware logic to attach an unique request id (uuid) to the request context
+// Log implements the middleware logic to log incoming http requests
 func (l *logMiddleware) Log(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := r.Context().Value(model.RequestID).(string)
