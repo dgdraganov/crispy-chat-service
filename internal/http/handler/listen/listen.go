@@ -159,7 +159,6 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 Loop:
 	for {
-		fmt.Println("Listening, listening")
 		select {
 		case msg := <-msgChan:
 			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
@@ -185,8 +184,7 @@ Loop:
 				)
 			}
 			break Loop
-			// default:
-			// 	<-time.After(time.Millisecond * 100)
+
 		}
 	}
 }
