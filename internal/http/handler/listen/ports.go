@@ -4,5 +4,5 @@ import "context"
 
 type Listener interface {
 	Verify(signature, clientID string) (bool, error)
-	ReadMessages(ctx context.Context, clientID string) <-chan string
+	ReadMessages(ctx context.Context, clientID string) chan string
 }

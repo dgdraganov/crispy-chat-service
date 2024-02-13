@@ -49,7 +49,7 @@ func (chat *chatService) Publish(ctx context.Context, clientID, message string) 
 	if message == "" {
 		return errors.New("message is empty")
 	}
-	timestamp := time.Now().Unix()
+	timestamp := time.Now().UTC().UnixMilli()
 	msgObj := model.ChatMessage{
 		Timestamp: timestamp,
 		Message:   message,
@@ -63,7 +63,7 @@ func (chat *chatService) Publish(ctx context.Context, clientID, message string) 
 	return nil
 }
 
-func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-chan string {
+func (chat *chatService) ReadMessages(ctx context.Context, clientID string) chan string {
 	requestID := ctx.Value(model.RequestID).(string)
 
 	messagesChan := make(chan string)
@@ -89,7 +89,6 @@ func (chat *chatService) ReadMessages(ctx context.Context, clientID string) <-ch
 				}
 				msgTime := time.Unix(msgObj.Timestamp, 0).Format("15:04")
 				chatMessage := fmt.Sprintf("[%s]\t%s\t%s\n", msgTime, msgObj.ClientID, msgObj.Message)
-				fmt.Println(chatMessage)
 				messagesChan <- chatMessage
 			case err, ok := <-errors:
 				if !ok {

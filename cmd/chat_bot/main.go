@@ -84,6 +84,7 @@ func main() {
 	if err != nil {
 		log.Fatal("ws dial:", err)
 	}
+	defer conn.Close()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -115,7 +116,7 @@ Loop:
 			<-time.After(time.Second * 4)
 		}
 	}
-	//conn.Close()
+
 	logger.Info(
 		"terminating chat connection",
 	)

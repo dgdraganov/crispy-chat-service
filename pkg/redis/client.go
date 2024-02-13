@@ -68,10 +68,10 @@ func (store *redisStore) ReadMessages(ctx context.Context, room string) (<-chan 
 				if len(messages) == 0 {
 					continue
 				}
-				offset += int64(len(messages))
 				for _, msg := range messages {
 					msgsChan <- msg
 				}
+				offset += int64(len(messages))
 			}
 		}
 	}()

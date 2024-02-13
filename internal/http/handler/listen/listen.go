@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/dgdraganov/crispy-chat-service/internal/core"
 	"github.com/dgdraganov/crispy-chat-service/internal/model"
@@ -160,6 +159,7 @@ func (handler *listenHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 Loop:
 	for {
+		fmt.Println("Listening, listening")
 		select {
 		case msg := <-msgChan:
 			if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
@@ -185,9 +185,8 @@ Loop:
 				)
 			}
 			break Loop
-		default:
-			<-time.After(time.Millisecond * 100)
+			// default:
+			// 	<-time.After(time.Millisecond * 100)
 		}
-
 	}
 }
