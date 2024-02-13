@@ -14,7 +14,7 @@ FROM ubuntu:22.04
 WORKDIR /server
 
 COPY --from=build /server/app /server/app
-COPY --from=build /server/private.pem /server/private.pem
+#COPY --from=build /server/private.pem /server/private.pem
 
 EXPOSE 9205
 CMD ["/server/app"]

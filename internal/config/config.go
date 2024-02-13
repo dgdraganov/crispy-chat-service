@@ -15,9 +15,10 @@ type ServerConfig struct {
 }
 
 const (
-	serverPortEnvString     = "SERVER_PORT"
-	privateKeyPathEnvString = "PRIVATE_KEY_PATH"
-	redisArrdessEnvString   = "REDIS_ADDRESS"
+	serverPortEnvString             = "SERVER_PORT"
+	privateKeyPathEnvString         = "PRIVATE_KEY_PATH"
+	redisArrdessEnvString           = "REDIS_ADDRESS"
+	privateKeyredisArrdessEnvString = "PRIVATE_KEY"
 )
 
 // NewServerConfig is a constructor function for the ServerConfig type

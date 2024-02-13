@@ -33,7 +33,7 @@ func main() {
 	l := middleware.NewLologMiddleware(logger)
 
 	// Load private key
-	privateKey, err := sign.LoadPrivateKey(conf.PrivateKeyPath)
+	privateKey, err := sign.LoadPrivateKey(os.Getenv("PRIVATE_KEY"))
 	if err != nil {
 		panic(fmt.Sprintf("load private key: %s", err))
 	}

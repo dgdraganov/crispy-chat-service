@@ -9,11 +9,6 @@ The below examples illustrate how the functionality can be tested.
 
 In the terminal navigate to the project root directory.
 
-The service needs a private key in order to generate digital signatures. The `openssl` command provided below will generate a ECDSA key:
-```
-    openssl ecparam -name secp521r1 -genkey -noout -out private.pem
-```
-
 The following make command will run the chat service and the redis client in detached mode:
 ```
     make server
@@ -34,10 +29,13 @@ When finished the below command will stop all docker services related to the cha
     make decompose
 ```
 
+## Private key
 
+In the provided `docker-compose.yaml` file there is an example env variable containing base64 encoded private key. It has been generated with the following command:
 
-
-
+```
+    openssl ecparam -name secp521r1 -genkey -noout -out private.pem
+```
 
 
 
